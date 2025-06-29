@@ -1,8 +1,14 @@
+
 void *malloc(size_t size) 
 {
 	
 	size_t total_size;
 	void *block; // a pointer.
+
+	// we have two things to store for every block of allocated memory:
+	// 1. size
+	// 2. Whether a block is free or not-free?
+	// this results in a header
 	header_t *header;
 
 	if (!size)
@@ -14,7 +20,7 @@ void *malloc(size_t size)
 	// try to find a free block
 	header = get_free_block(size);
 	if (header) {
-		header->s.is_free = 0; // mark it as not free
+		header->s.is_free = 0; // mark it as not free. -> combines * and . operations in one step.
 		pthread_mutex_unlock(&global_malloc_lock); // release the lock, because we have marked it as not free.
 		return (void*)(header + 1); // return the pointer to the block
 	}
@@ -45,18 +51,17 @@ void *malloc(size_t size)
 
 header_t *get_free_block(size_t size)
 {
-	// to implement
 	// traverses the linked list to see if there's alreday a free block of memory
+	header_t *curr = head;
+	while (curr){
+		if (curr -> s.is_free && curr -> s.size >= size)
+		return curr;
+	curr = curr -> s.next;
+	}
+	return NULL;
 }
 
 
-// we could only release the memory at the end of a program
-
-// we have two things to store for every block of allocated memory:
-// 1. size
-// 2. Whether a block is free or 
-// not-free?
-// this results in a header
 
 // a new 'char' type of 16 bytes long named "ALIGN" 
 typedef char ALIGN[16];
