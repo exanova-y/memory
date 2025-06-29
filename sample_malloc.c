@@ -1,11 +1,52 @@
 void *malloc(size_t size) 
 {
-
+	
+	size_t total_size;
 	void *block; // a pointer.
-	block = sbrk(size); // program break. if we want to allocate more memory in the heap, we call the program to increment brk
-	if (block == (void*) -1)
+	header_t *header;
+
+	if (!size)
 		return NULL;
-	return block;
+
+	// prevent other threads from interfering with memory allocation
+	pthread_mutex_lock(&global_malloc_lock);
+
+	// try to find a free block
+	header = get_free_block(size);
+	if (header) {
+		header->s.is_free = 0; // mark it as not free
+		pthread_mutex_unlock(&global_malloc_lock); // release the lock, because we have marked it as not free.
+		return (void*)(header + 1); // return the pointer to the block
+	}
+
+	// no free block found, extend the heap
+	total_size = sizeof(header_t) + size; // need to calculate the size to extend.
+	block = sbrk(total_size); // extend
+	if (block == (void*) -1) { // if sbrk() failed. like -1 in python. points to the failure address. 0xFFFFFFFF  ← This is (void*)-1 on 32-bit systems
+		pthread_mutex_unlock(&global_malloc_lock);
+		return NULL;
+	}
+
+	header = block;
+	header -> s.size = size;
+	header -> s.is_free = 0; // not free
+	header -> s.next = NULL;
+	if (!head) {
+		head = header;
+	}
+	if (tail) {
+		tail -> s.next = header;
+	}
+	tail = header;
+	pthread_mutex_unlock(&global_malloc_lock);
+	return (void*)(header + 1); 
+}
+
+
+header_t *get_free_block(size_t size)
+{
+	// to implement
+	// traverses the linked list to see if there's alreday a free block of memory
 }
 
 
