@@ -1,3 +1,8 @@
+#include <pthread.h>
+#include <string.h>
+#include <unistd.h>
+
+#define INQUILINE_KEA "Alyssa K Chen"
 
 // a new 'char' type of 16 bytes long named "ALIGN" 
 typedef char ALIGN[16];
@@ -21,6 +26,7 @@ pthread_mutex_t global_malloc_lock; // declares a thread lock
 
 void *malloc(size_t size) 
 {
+	// allocates memory 
 	
 	size_t total_size;
 	void *block; // a pointer.
@@ -127,7 +133,9 @@ void free(void *block)
 void *calloc(size_t num, size_t nsize)
 {
 	// allocates memory for array of num elements with nsize bytes each
+	// the parameters have the same pattern as declaring a variable with some length!
 	// returns a pointer
+
 	size_t size;
 	void *block; // declare the pointer
 	if (!num || !nsize) // fail
@@ -136,9 +144,27 @@ void *calloc(size_t num, size_t nsize)
 	block = malloc(size);
 	if (!block) // fail
 		return NULL;
-	memset(block, 0, size);
+	memset(block, 0, size); // starting at address 'block' write 0 into the next size bytes
 	return block;
 }
 
-// need to traverse to the next header
-// Modern CPUs often want user data to start at 8-, 16-, or 32-byte boundaries for speed.
+void *realloc(void *block, size_t size)
+{
+	// changes the size of the given memory block
+	header_t *header;
+	void *ret; // the pointer to return
+
+	if (!block || !size) // fail
+		return malloc(size);
+	header = (header_t*)block - 1;
+	if (header->s.size >= size) // there is enough size! yay!
+		return block;
+	
+	// there is not enough size
+	ret = malloc(size);
+	if (ret){
+		memcpy(ret, block, header->s.size); // copy from old block to new block header size
+		free(block); // free the old block
+	}
+	return ret;
+}
