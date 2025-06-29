@@ -96,6 +96,8 @@ void free(void *block)
 	pthread_mutex_lock(&global_malloc_lock);
 	header = (header_t*)block - 1; // the header is behind the block by 1 unit (end of last block)
 
+	// heap end: where the "highway" currently stops
+	// block end: The mile-marker where one individual allocation ends.
 	programbreak = sbrk(0);
 	if ((char*)block + header->s.size == programbreak) { // if the end of the block coincides with the end of the heap
 		if (head == tail){
@@ -120,6 +122,22 @@ void free(void *block)
 	}
 	header->s.is_free = 1;
 	pthread_mutex_unlock(&global_malloc_lock);
+}
+
+void *calloc(size_t num, size_t nsize)
+{
+	// allocates memory for array of num elements with nsize bytes each
+	// returns a pointer
+	size_t size;
+	void *block; // declare the pointer
+	if (!num || !nsize) // fail
+		return NULL;
+	size = num * nsize;
+	block = malloc(size);
+	if (!block) // fail
+		return NULL;
+	memset(block, 0, size);
+	return block;
 }
 
 // need to traverse to the next header
