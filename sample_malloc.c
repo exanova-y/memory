@@ -1,4 +1,24 @@
 
+// a new 'char' type of 16 bytes long named "ALIGN" 
+typedef char ALIGN[16];
+
+// union size is max(header_t, ALIGN)
+union header {
+	struct header_t {
+		size_t size;
+		unsigned is_free;
+		struct header_t *next;
+	} s; 
+	ALIGN stub; // just for alignment
+
+};
+
+typedef union header header_t;
+header_t *head, *tail;
+pthread_mutex_t global_malloc_lock; // declares a thread lock
+
+
+
 void *malloc(size_t size) 
 {
 	
@@ -62,27 +82,45 @@ header_t *get_free_block(size_t size)
 }
 
 
+void free(void *block)
+{ 
+	// determine if the block is at the end of the heap so it can be freed
+	// otherwise just mark it as to be freed
 
-// a new 'char' type of 16 bytes long named "ALIGN" 
-typedef char ALIGN[16];
+	header_t *header, *tmp;
+	void *programbreak;
 
-// union size is max(header_t, ALIGN)
-union header {
-	struct header_t {
-		size_t size;
-		unsigned is_free;
-		struct header_t *next;
-	} s; 
-	ALIGN stub; // just for alignment
+	if (!block) // fail
+		return;
 
-};
+	pthread_mutex_lock(&global_malloc_lock);
+	header = (header_t*)block - 1; // the header is behind the block by 1 unit (end of last block)
 
-typedef union header header_t;
+	programbreak = sbrk(0);
+	if ((char*)block + header->s.size == programbreak) { // if the end of the block coincides with the end of the heap
+		if (head == tail){
+			head = tail = NULL;
+		}
+		else {
+			tmp = head;
+			while (tmp){
+				if (tmp -> s.next == tail){
+					tmp -> s.next = NULL;
+					tail = tmp;
+				}
+				tmp = tmp -> s.next;
+			}
+		}
+		// release header_t + header->s.size amount of memory
+		// call sbrk to release the negative amount of it
 
-header_t *head, *tail;
-pthread_mutex_t global_malloc_lock; // declares a thread lock
-
-
+		sbrk(0 - sizeof(header_t) - header->s.size); 
+		pthread_mutex_unlock(&global_malloc_lock);
+		return;
+	}
+	header->s.is_free = 1;
+	pthread_mutex_unlock(&global_malloc_lock);
+}
 
 // need to traverse to the next header
 // Modern CPUs often want user data to start at 8-, 16-, or 32-byte boundaries for speed.
